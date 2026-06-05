@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Marvels Team 2026</title>
+<meta name="description" content="Marvels Team 2026 — Executive Team Introduction" />
+<meta property="og:title" content="Marvels Team 2026" />
+<meta property="og:description" content="The Heroes of Marvels — Property Accounting R2R" />
+<meta property="og:image" content="slides/slide1.webp" />
+<meta property="og:type" content="website" />
+<link rel="icon" href="slides/slide1.webp" />
+<style>
+  :root { --ui: rgba(255,255,255,.85); --ui-dim: rgba(255,255,255,.45); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; background:#000; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .stage { position:fixed; inset:0; display:grid; place-items:center; background:#000; }
+
+  /* 16:9 locked, letterboxed on any screen */
+  .deck {
+    position:relative;
+    width:min(100vw, 177.78vh);
+    height:min(56.25vw, 100vh);
+    overflow:hidden;
+    background:#000;
+    box-shadow:0 0 60px rgba(0,0,0,.6);
+  }
+
+  .slide {
+    position:absolute; inset:0;
+    background-size:contain; background-position:center; background-repeat:no-repeat;
+    background-color:#000;
+    will-change:opacity, transform;
+    opacity:0;
+    z-index:1;
+  }
+  .slide.current { opacity:1; z-index:2; }
+  .slide.incoming { z-index:3; }
+
+  /* Through-black overlay (for fade-through-black slides) */
+  .blackout {
+    position:absolute; inset:0; background:#000; opacity:0;
+    pointer-events:none; z-index:5;
+  }
+
+  /* ---- UI chrome ---- */
+  .ui { position:absolute; inset:0; z-index:10; pointer-events:none; }
+  .nav { position:absolute; top:0; bottom:0; width:18%; cursor:pointer; pointer-events:auto;
+         display:flex; align-items:center; opacity:0; transition:opacity .25s; }
+  .nav.prev { left:0; justify-content:flex-start; }
+  .nav.next { right:0; justify-content:flex-end; }
+  .deck:hover .nav { opacity:1; }
+  .nav svg { width:42px; height:42px; margin:0 18px; fill:none; stroke:var(--ui);
+             stroke-width:2.5; filter:drop-shadow(0 2px 6px rgba(0,0,0,.7)); }
+  .nav:hover svg { stroke:#fff; }
+
+  .bar { position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(255,255,255,.12); z-index:11; }
+  .bar > i { display:block; height:100%; width:0; background:#fff; transition:width .4s ease; }
+
+  .counter { position:absolute; bottom:14px; right:18px; z-index:11; color:var(--ui);
+             font-size:13px; letter-spacing:1px; font-variant-numeric:tabular-nums;
+             background:rgba(0,0,0,.35); padding:5px 12px; border-radius:20px; backdrop-filter:blur(6px);
+             opacity:0; transition:opacity .25s; pointer-events:none; }
+  .deck:hover .counter { opacity:1; }
+
+  .fsbtn { position:absolute; bottom:12px; left:16px; z-index:11; pointer-events:auto; cursor:pointer;
+           background:rgba(0,0,0,.35); border:none; border-radius:8px; padding:7px; line-height:0;
+           opacity:0; transition:opacity .25s; backdrop-filter:blur(6px); }
+  .deck:hover .fsbtn { opacity:1; }
+  .fsbtn svg { width:18px; height:18px; fill:none; stroke:var(--ui); stroke-width:2; }
+  .fsbtn:hover svg { stroke:#fff; }
+
+  .hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20;
+          color:#fff; font-size:14px; letter-spacing:1px; text-align:center; opacity:.9;
+          background:rgba(0,0,0,.45); padding:14px 22px; border-radius:12px; backdrop-filter:blur(8px);
+          transition:opacity .6s; pointer-events:none; }
+  .hint.hide { opacity:0; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="deck" id="deck" tabindex="0">
+      <div class="blackout" id="blackout"></div>
+      <div class="ui">
+        <div class="nav prev" id="prev" aria-label="Previous slide">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </div>
+        <div class="nav next" id="next" aria-label="Next slide">
+          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+      <div class="bar"><i id="barfill"></i></div>
+      <div class="counter" id="counter">1 / 13</div>
+      <button class="fsbtn" id="fsbtn" aria-label="Fullscreen">
+        <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+      </button>
+      <div class="hint" id="hint">Use → ← or click to navigate &nbsp;·&nbsp; F for fullscreen</div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  // Per-slide "transition in" — extracted from the original PowerPoint file.
+  // type: how this slide enters. dur in ms (matches the .pptx timings).
+  const SLIDES = [
+    { src: "slides/slide1.webp",  type: "fadeblack", dur: 1600 },
+    { src: "slides/slide2.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide3.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide4.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide5.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide6.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide7.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide8.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide9.webp",  type: "morph",     dur: 1500 },
+    { src: "slides/slide10.webp", type: "morph",     dur: 1600 },
+    { src: "slides/slide11.webp", type: "push",      dur: 1500 },
+    { src: "slides/slide12.webp", type: "fadeblack", dur: 1800 },
+    { src: "slides/slide13.webp", type: "fadeblack", dur: 1800 },
+  ];
+
+  const deck = document.getElementById("deck");
+  const blackout = document.getElementById("blackout");
+  const counter = document.getElementById("counter");
+  const barfill = document.getElementById("barfill");
+  const hint = document.getElementById("hint");
+
+  // Build slide layers
+  const els = SLIDES.map((s, i) => {
+    const d = document.createElement("div");
+    d.className = "slide";
+    d.style.backgroundImage = `url("${s.src}")`;
+    // preload images
+    const pre = new Image(); pre.src = s.src;
+    deck.insertBefore(d, deck.firstChild.nextSibling); // after blackout, before ui
+    return d;
+  });
+
+  let cur = 0;
+  let busy = false;
+  els[0].classList.add("current");
+  updateChrome();
+
+  function updateChrome() {
+    counter.textContent = (cur + 1) + " / " + SLIDES.length;
+    barfill.style.width = ((cur + 1) / SLIDES.length * 100) + "%";
+  }
+
+  function ease(el, props, ms) {
+    el.style.transition = props.map(p => `${p} ${ms}ms cubic-bezier(.4,0,.2,1)`).join(", ");
+  }
+  function clearTransition(el) { el.style.transition = "none"; el.style.transform = ""; }
+
+  function go(target, dir) {
+    if (busy || target < 0 || target >= SLIDES.length || target === cur) return;
+    busy = true;
+    hideHint();
+    const from = els[cur];
+    const to = els[target];
+    const meta = SLIDES[dir > 0 ? target : cur]; // entering slide owns the transition
+    const type = meta.type;
+    const dur = meta.dur;
+
+    // reset incoming
+    to.classList.add("incoming");
+    clearTransition(to);
+    to.offsetHeight; // reflow
+
+    const finish = () => {
+      from.classList.remove("current");
+      to.classList.remove("incoming");
+      to.classList.add("current");
+      [from, to].forEach(e => { e.style.transition = "none"; e.style.transform = ""; e.style.opacity = ""; });
+      blackout.style.transition = "none"; blackout.style.opacity = 0;
+      cur = target;
+      updateChrome();
+      busy = false;
+    };
+
+    if (type === "push") {
+      // PowerPoint default Push = from bottom (reverse when going back)
+      const sign = dir > 0 ? 1 : -1;
+      to.style.opacity = 1;
+      to.style.transform = `translateY(${100 * sign}%)`;
+      from.style.opacity = 1;
+      to.offsetHeight;
+      ease(to, ["transform"], dur);
+      ease(from, ["transform"], dur);
+      to.style.transform = "translateY(0)";
+      from.style.transform = `translateY(${-100 * sign}%)`;
+      setTimeout(finish, dur);
+
+    } else if (type === "fadeblack") {
+      // fade through black: old -> black (half), swap, black -> new (half)
+      const half = dur / 2;
+      to.style.opacity = 1;          // place new underneath, fully drawn
+      to.style.zIndex = 1;
+      from.style.zIndex = 2;
+      blackout.style.opacity = 0;
+      blackout.style.transition = `opacity ${half}ms ease-in`;
+      blackout.offsetHeight;
+      blackout.style.opacity = 1;    // to black
+      setTimeout(() => {
+        from.classList.remove("current");
+        from.style.zIndex = ""; to.style.zIndex = "";
+        blackout.style.transition = `opacity ${half}ms ease-out`;
+        blackout.offsetHeight;
+        blackout.style.opacity = 0;  // reveal new
+        setTimeout(finish, half);
+      }, half);
+
+    } else {
+      // fade & morph -> smooth crossfade; morph adds a gentle scale for life
+      to.style.opacity = 0;
+      if (type === "morph") {
+        to.style.transform = "scale(1.035)";
+        ease(to, ["opacity", "transform"], dur);
+      } else {
+        ease(to, ["opacity"], dur);
+      }
+      to.offsetHeight;
+      to.style.opacity = 1;
+      if (type === "morph") to.style.transform = "scale(1)";
+      // hold old visible, fade handled by stacking
+      from.style.opacity = 1;
+      setTimeout(finish, dur);
+    }
+  }
+
+  function next() { go(cur + 1, +1); }
+  function prev() { go(cur - 1, -1); }
+
+  // ---- input ----
+  document.getElementById("next").addEventListener("click", next);
+  document.getElementById("prev").addEventListener("click", prev);
+  document.getElementById("fsbtn").addEventListener("click", toggleFs);
+
+  window.addEventListener("keydown", (e) => {
+    switch (e.key) {
+      case "ArrowRight": case " ": case "PageDown": case "Enter": e.preventDefault(); next(); break;
+      case "ArrowLeft": case "PageUp": e.preventDefault(); prev(); break;
+      case "Home": e.preventDefault(); jump(0); break;
+      case "End": e.preventDefault(); jump(SLIDES.length - 1); break;
+      case "f": case "F": toggleFs(); break;
+    }
+  });
+
+  function jump(t) { if (t !== cur) go(t, t > cur ? 1 : -1); }
+
+  // touch swipe
+  let tx = 0, ty = 0;
+  deck.addEventListener("touchstart", e => { tx = e.changedTouches[0].clientX; ty = e.changedTouches[0].clientY; }, {passive:true});
+  deck.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { dx < 0 ? next() : prev(); }
+  }, {passive:true});
+
+  function toggleFs() {
+    const el = document.documentElement;
+    if (!document.fullscreenElement) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+
+  let hintTimer = setTimeout(hideHint, 4000);
+  function hideHint() { hint.classList.add("hide"); clearTimeout(hintTimer); }
+
+  deck.focus();
+})();
+</script>
+</body>
+</html>
