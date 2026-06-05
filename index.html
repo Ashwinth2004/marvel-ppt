@@ -11,9 +11,10 @@
 <meta property="og:type" content="website" />
 <link rel="icon" href="slides/slide1.webp" />
 <style>
-  :root { --ui: rgba(255,255,255,.85); --ui-dim: rgba(255,255,255,.45); }
+  :root { --ui: rgba(255,255,255,.9); --ui-dim: rgba(255,255,255,.5); }
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { height:100%; background:#000; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  html, body { height:100%; background:#000; overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
   .stage { position:fixed; inset:0; display:grid; place-items:center; background:#000; }
 
   /* 16:9 locked, letterboxed on any screen */
@@ -24,6 +25,8 @@
     overflow:hidden;
     background:#000;
     box-shadow:0 0 60px rgba(0,0,0,.6);
+    cursor:pointer;
+    user-select:none;
   }
 
   .slide {
@@ -31,91 +34,102 @@
     background-size:contain; background-position:center; background-repeat:no-repeat;
     background-color:#000;
     will-change:opacity, transform;
-    opacity:0;
-    z-index:1;
+    opacity:0; z-index:1;
   }
-  .slide.current { opacity:1; z-index:2; }
+  .slide.current  { opacity:1; z-index:2; }
   .slide.incoming { z-index:3; }
 
-  /* Through-black overlay (for fade-through-black slides) */
-  .blackout {
-    position:absolute; inset:0; background:#000; opacity:0;
-    pointer-events:none; z-index:5;
-  }
+  .blackout { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; z-index:5; }
 
-  /* ---- UI chrome ---- */
-  .ui { position:absolute; inset:0; z-index:10; pointer-events:none; }
-  .nav { position:absolute; top:0; bottom:0; width:18%; cursor:pointer; pointer-events:auto;
-         display:flex; align-items:center; opacity:0; transition:opacity .25s; }
-  .nav.prev { left:0; justify-content:flex-start; }
-  .nav.next { right:0; justify-content:flex-end; }
-  .deck:hover .nav { opacity:1; }
-  .nav svg { width:42px; height:42px; margin:0 18px; fill:none; stroke:var(--ui);
-             stroke-width:2.5; filter:drop-shadow(0 2px 6px rgba(0,0,0,.7)); }
-  .nav:hover svg { stroke:#fff; }
+  /* ---- click zones (always active, so a single tap works) ---- */
+  .edge { position:absolute; top:0; bottom:54px; width:28%; z-index:8;
+          display:flex; align-items:center; }
+  .edge.prev { left:0;  justify-content:flex-start; }
+  .edge.next { right:0; justify-content:flex-end; }
+  .edge svg { width:40px; height:40px; margin:0 16px; fill:none; stroke:#fff; stroke-width:2.5;
+              opacity:0; transition:opacity .2s; filter:drop-shadow(0 2px 6px rgba(0,0,0,.8)); }
+  .deck:hover .edge svg { opacity:.55; }
+  .edge:hover svg { opacity:1; }
 
-  .bar { position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(255,255,255,.12); z-index:11; }
+  /* ---- bottom toolbar (always visible → single tap on touch) ---- */
+  .toolbar { position:absolute; left:0; right:0; bottom:0; height:54px; z-index:12;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:0 14px; background:linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0));
+    opacity:.92; transition:opacity .3s; }
+  .deck:not(:hover) .toolbar { opacity:.5; }
+  .tbtn { pointer-events:auto; cursor:pointer; background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.14); border-radius:9px; padding:7px 9px; line-height:0;
+    display:inline-flex; align-items:center; gap:7px; color:var(--ui); transition:background .15s,border-color .15s; }
+  .tbtn:hover { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.3); }
+  .tbtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; }
+  .tbtn .lbl { font-size:12.5px; letter-spacing:.4px; padding-right:3px; white-space:nowrap; }
+  .counter { color:var(--ui); font-size:13px; letter-spacing:1px; font-variant-numeric:tabular-nums;
+    min-width:62px; text-align:center; padding:0 6px; }
+  .spacer { width:14px; }
+
+  /* progress bar */
+  .bar { position:absolute; left:0; right:0; bottom:54px; height:3px; background:rgba(255,255,255,.12); z-index:11; }
   .bar > i { display:block; height:100%; width:0; background:#fff; transition:width .4s ease; }
 
-  .counter { position:absolute; bottom:14px; right:18px; z-index:11; color:var(--ui);
-             font-size:13px; letter-spacing:1px; font-variant-numeric:tabular-nums;
-             background:rgba(0,0,0,.35); padding:5px 12px; border-radius:20px; backdrop-filter:blur(6px);
-             opacity:0; transition:opacity .25s; pointer-events:none; }
-  .deck:hover .counter { opacity:1; }
-
-  .fsbtn { position:absolute; bottom:12px; left:16px; z-index:11; pointer-events:auto; cursor:pointer;
-           background:rgba(0,0,0,.35); border:none; border-radius:8px; padding:7px; line-height:0;
-           opacity:0; transition:opacity .25s; backdrop-filter:blur(6px); }
-  .deck:hover .fsbtn { opacity:1; }
-  .fsbtn svg { width:18px; height:18px; fill:none; stroke:var(--ui); stroke-width:2; }
-  .fsbtn:hover svg { stroke:#fff; }
-
   .hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20;
-          color:#fff; font-size:14px; letter-spacing:1px; text-align:center; opacity:.9;
-          background:rgba(0,0,0,.45); padding:14px 22px; border-radius:12px; backdrop-filter:blur(8px);
-          transition:opacity .6s; pointer-events:none; }
+    color:#fff; font-size:14px; letter-spacing:1px; text-align:center;
+    background:rgba(0,0,0,.45); padding:13px 22px; border-radius:12px; backdrop-filter:blur(8px);
+    transition:opacity .6s; pointer-events:none; }
   .hint.hide { opacity:0; }
+
+  @media (max-width:640px){ .tbtn .lbl{ display:none; } .edge svg{ width:32px; } }
 </style>
 </head>
 <body>
   <div class="stage">
     <div class="deck" id="deck" tabindex="0">
       <div class="blackout" id="blackout"></div>
-      <div class="ui">
-        <div class="nav prev" id="prev" aria-label="Previous slide">
-          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-        </div>
-        <div class="nav next" id="next" aria-label="Next slide">
-          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
+
+      <div class="edge prev" id="prev"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="edge next" id="next"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
       <div class="bar"><i id="barfill"></i></div>
-      <div class="counter" id="counter">1 / 13</div>
-      <button class="fsbtn" id="fsbtn" aria-label="Fullscreen">
-        <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
-      </button>
-      <div class="hint" id="hint">Use → ← or click to navigate &nbsp;·&nbsp; F for fullscreen</div>
+
+      <div class="toolbar" id="toolbar">
+        <button class="tbtn" id="restart" title="Start from beginning">
+          <svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          <span class="lbl">Start over</span>
+        </button>
+        <span class="spacer"></span>
+        <button class="tbtn" id="tprev" title="Previous (←)">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="counter" id="counter">1 / 13</span>
+        <button class="tbtn" id="tnext" title="Next (→)">
+          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <span class="spacer"></span>
+        <button class="tbtn" id="fsbtn" title="Fullscreen (F)">
+          <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+        </button>
+      </div>
+
+      <div class="hint" id="hint">Click → or use arrow keys &nbsp;·&nbsp; F for fullscreen</div>
     </div>
   </div>
 
 <script>
 (function () {
-  // Per-slide "transition in" — extracted from the original PowerPoint file.
-  // type: how this slide enters. dur in ms (matches the .pptx timings).
+  // Per-slide "transition in" — read straight from the original .pptx
   const SLIDES = [
-    { src: "slides/slide1.webp",  type: "fadeblack", dur: 1600 },
-    { src: "slides/slide2.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide3.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide4.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide5.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide6.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide7.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide8.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide9.webp",  type: "morph",     dur: 1500 },
-    { src: "slides/slide10.webp", type: "morph",     dur: 1600 },
-    { src: "slides/slide11.webp", type: "push",      dur: 1500 },
-    { src: "slides/slide12.webp", type: "fadeblack", dur: 1800 },
-    { src: "slides/slide13.webp", type: "fadeblack", dur: 1800 },
+    { src:"slides/slide1.webp",  type:"fadeblack", dur:1600 },
+    { src:"slides/slide2.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide3.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide4.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide5.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide6.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide7.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide8.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide9.webp",  type:"morph",     dur:1500 },
+    { src:"slides/slide10.webp", type:"morph",     dur:1600 },
+    { src:"slides/slide11.webp", type:"push",      dur:1500 },
+    { src:"slides/slide12.webp", type:"fadeblack", dur:1800 },
+    { src:"slides/slide13.webp", type:"fadeblack", dur:1800 },
   ];
 
   const deck = document.getElementById("deck");
@@ -124,19 +138,16 @@
   const barfill = document.getElementById("barfill");
   const hint = document.getElementById("hint");
 
-  // Build slide layers
-  const els = SLIDES.map((s, i) => {
+  const els = SLIDES.map((s) => {
     const d = document.createElement("div");
     d.className = "slide";
     d.style.backgroundImage = `url("${s.src}")`;
-    // preload images
-    const pre = new Image(); pre.src = s.src;
-    deck.insertBefore(d, deck.firstChild.nextSibling); // after blackout, before ui
+    new Image().src = s.src; // preload
+    deck.insertBefore(d, blackout.nextSibling);
     return d;
   });
 
-  let cur = 0;
-  let busy = false;
+  let cur = 0, busy = false;
   els[0].classList.add("current");
   updateChrome();
 
@@ -144,107 +155,87 @@
     counter.textContent = (cur + 1) + " / " + SLIDES.length;
     barfill.style.width = ((cur + 1) / SLIDES.length * 100) + "%";
   }
-
   function ease(el, props, ms) {
     el.style.transition = props.map(p => `${p} ${ms}ms cubic-bezier(.4,0,.2,1)`).join(", ");
   }
-  function clearTransition(el) { el.style.transition = "none"; el.style.transform = ""; }
 
-  function go(target, dir) {
+  // type override lets "Start over" use a quick fade for the long jump
+  function go(target, dir, override) {
     if (busy || target < 0 || target >= SLIDES.length || target === cur) return;
-    busy = true;
-    hideHint();
-    const from = els[cur];
-    const to = els[target];
-    const meta = SLIDES[dir > 0 ? target : cur]; // entering slide owns the transition
-    const type = meta.type;
-    const dur = meta.dur;
+    busy = true; hideHint();
+    const from = els[cur], to = els[target];
+    const meta = SLIDES[dir > 0 ? target : cur];      // entering slide owns the transition
+    const type = override || meta.type;
+    const dur  = override ? 700 : meta.dur;
 
-    // reset incoming
     to.classList.add("incoming");
-    clearTransition(to);
-    to.offsetHeight; // reflow
+    to.style.transition = "none"; to.style.transform = ""; to.offsetHeight;
 
     const finish = () => {
       from.classList.remove("current");
-      to.classList.remove("incoming");
-      to.classList.add("current");
-      [from, to].forEach(e => { e.style.transition = "none"; e.style.transform = ""; e.style.opacity = ""; });
+      to.classList.remove("incoming"); to.classList.add("current");
+      [from, to].forEach(e => { e.style.transition = "none"; e.style.transform = ""; e.style.opacity = ""; e.style.zIndex = ""; });
       blackout.style.transition = "none"; blackout.style.opacity = 0;
-      cur = target;
-      updateChrome();
-      busy = false;
+      cur = target; updateChrome(); busy = false;
     };
 
     if (type === "push") {
-      // PowerPoint default Push = from bottom (reverse when going back)
-      const sign = dir > 0 ? 1 : -1;
-      to.style.opacity = 1;
-      to.style.transform = `translateY(${100 * sign}%)`;
-      from.style.opacity = 1;
-      to.offsetHeight;
-      ease(to, ["transform"], dur);
-      ease(from, ["transform"], dur);
+      const sign = dir > 0 ? 1 : -1;            // PowerPoint default Push = from bottom
+      to.style.opacity = 1; to.style.transform = `translateY(${100*sign}%)`;
+      from.style.opacity = 1; to.offsetHeight;
+      ease(to, ["transform"], dur); ease(from, ["transform"], dur);
       to.style.transform = "translateY(0)";
-      from.style.transform = `translateY(${-100 * sign}%)`;
+      from.style.transform = `translateY(${-100*sign}%)`;
       setTimeout(finish, dur);
 
     } else if (type === "fadeblack") {
-      // fade through black: old -> black (half), swap, black -> new (half)
       const half = dur / 2;
-      to.style.opacity = 1;          // place new underneath, fully drawn
-      to.style.zIndex = 1;
-      from.style.zIndex = 2;
-      blackout.style.opacity = 0;
-      blackout.style.transition = `opacity ${half}ms ease-in`;
-      blackout.offsetHeight;
-      blackout.style.opacity = 1;    // to black
+      to.style.opacity = 1; to.style.zIndex = 1; from.style.zIndex = 2;
+      blackout.style.opacity = 0; blackout.style.transition = `opacity ${half}ms ease-in`;
+      blackout.offsetHeight; blackout.style.opacity = 1;
       setTimeout(() => {
         from.classList.remove("current");
         from.style.zIndex = ""; to.style.zIndex = "";
         blackout.style.transition = `opacity ${half}ms ease-out`;
-        blackout.offsetHeight;
-        blackout.style.opacity = 0;  // reveal new
+        blackout.offsetHeight; blackout.style.opacity = 0;
         setTimeout(finish, half);
       }, half);
 
-    } else {
-      // fade & morph -> smooth crossfade; morph adds a gentle scale for life
+    } else { // fade & morph -> crossfade (morph gets a subtle scale for life)
       to.style.opacity = 0;
-      if (type === "morph") {
-        to.style.transform = "scale(1.035)";
-        ease(to, ["opacity", "transform"], dur);
-      } else {
-        ease(to, ["opacity"], dur);
-      }
+      if (type === "morph") { to.style.transform = "scale(1.03)"; ease(to, ["opacity","transform"], dur); }
+      else ease(to, ["opacity"], dur);
       to.offsetHeight;
-      to.style.opacity = 1;
-      if (type === "morph") to.style.transform = "scale(1)";
-      // hold old visible, fade handled by stacking
+      to.style.opacity = 1; if (type === "morph") to.style.transform = "scale(1)";
       from.style.opacity = 1;
       setTimeout(finish, dur);
     }
   }
 
-  function next() { go(cur + 1, +1); }
-  function prev() { go(cur - 1, -1); }
+  const next = () => go(cur + 1, +1);
+  const prev = () => go(cur - 1, -1);
+  const restart = () => { if (cur !== 0) go(0, -1, "fade"); };
 
-  // ---- input ----
-  document.getElementById("next").addEventListener("click", next);
-  document.getElementById("prev").addEventListener("click", prev);
+  // ---- clicks: single tap anywhere advances; left edge / arrows go back ----
+  deck.addEventListener("click", (e) => {
+    if (e.target.closest(".toolbar")) return;       // toolbar buttons handle themselves
+    if (e.target.closest(".edge.prev")) { prev(); return; }
+    next();
+  });
+  document.getElementById("tnext").addEventListener("click", next);
+  document.getElementById("tprev").addEventListener("click", prev);
+  document.getElementById("restart").addEventListener("click", restart);
   document.getElementById("fsbtn").addEventListener("click", toggleFs);
 
   window.addEventListener("keydown", (e) => {
     switch (e.key) {
       case "ArrowRight": case " ": case "PageDown": case "Enter": e.preventDefault(); next(); break;
-      case "ArrowLeft": case "PageUp": e.preventDefault(); prev(); break;
-      case "Home": e.preventDefault(); jump(0); break;
-      case "End": e.preventDefault(); jump(SLIDES.length - 1); break;
+      case "ArrowLeft":  case "PageUp": e.preventDefault(); prev(); break;
+      case "Home": e.preventDefault(); restart(); break;
+      case "End":  e.preventDefault(); go(SLIDES.length - 1, +1, "fade"); break;
       case "f": case "F": toggleFs(); break;
     }
   });
-
-  function jump(t) { if (t !== cur) go(t, t > cur ? 1 : -1); }
 
   // touch swipe
   let tx = 0, ty = 0;
@@ -260,9 +251,8 @@
     else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
   }
 
-  let hintTimer = setTimeout(hideHint, 4000);
+  let hintTimer = setTimeout(hideHint, 4500);
   function hideHint() { hint.classList.add("hide"); clearTimeout(hintTimer); }
-
   deck.focus();
 })();
 </script>
