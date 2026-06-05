@@ -42,7 +42,7 @@
   .blackout { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; z-index:5; }
 
   /* ---- click zones (always active, so a single tap works) ---- */
-  .edge { position:absolute; top:0; bottom:54px; width:28%; z-index:8;
+  .edge { position:absolute; top:0; bottom:0; width:28%; z-index:8;
           display:flex; align-items:center; }
   .edge.prev { left:0;  justify-content:flex-start; }
   .edge.next { right:0; justify-content:flex-end; }
@@ -51,24 +51,25 @@
   .deck:hover .edge svg { opacity:.55; }
   .edge:hover svg { opacity:1; }
 
-  /* ---- bottom toolbar (always visible → single tap on touch) ---- */
-  .toolbar { position:absolute; left:0; right:0; bottom:0; height:54px; z-index:12;
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    padding:0 14px; background:linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0));
-    opacity:.92; transition:opacity .3s; }
-  .deck:not(:hover) .toolbar { opacity:.5; }
-  .tbtn { pointer-events:auto; cursor:pointer; background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.14); border-radius:9px; padding:7px 9px; line-height:0;
-    display:inline-flex; align-items:center; gap:7px; color:var(--ui); transition:background .15s,border-color .15s; }
-  .tbtn:hover { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.3); }
+  /* ---- bottom-LEFT control panel (always clearly visible, incl. fullscreen) ---- */
+  .toolbar { position:absolute; left:18px; bottom:18px; z-index:12;
+    display:flex; align-items:center; gap:6px;
+    padding:8px 10px; border-radius:13px;
+    background:rgba(10,12,18,.78); backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 8px 26px rgba(0,0,0,.5); }
+  .tbtn { pointer-events:auto; cursor:pointer; background:rgba(255,255,255,.1);
+    border:1px solid rgba(255,255,255,.16); border-radius:9px; padding:8px 10px; line-height:0;
+    display:inline-flex; align-items:center; gap:7px; color:#fff; transition:background .15s,border-color .15s; }
+  .tbtn:hover { background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.36); }
   .tbtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; }
   .tbtn .lbl { font-size:12.5px; letter-spacing:.4px; padding-right:3px; white-space:nowrap; }
-  .counter { color:var(--ui); font-size:13px; letter-spacing:1px; font-variant-numeric:tabular-nums;
-    min-width:62px; text-align:center; padding:0 6px; }
-  .spacer { width:14px; }
+  .counter { color:#fff; font-size:13px; letter-spacing:1px; font-variant-numeric:tabular-nums;
+    min-width:62px; text-align:center; padding:0 8px; }
+  .spacer { width:8px; }
 
   /* progress bar */
-  .bar { position:absolute; left:0; right:0; bottom:54px; height:3px; background:rgba(255,255,255,.12); z-index:11; }
+  .bar { position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,.12); z-index:11; }
   .bar > i { display:block; height:100%; width:0; background:#fff; transition:width .4s ease; }
 
   .hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20;
@@ -201,13 +202,20 @@
         setTimeout(finish, half);
       }, half);
 
-    } else { // fade & morph -> crossfade (morph gets a subtle scale for life)
-      to.style.opacity = 0;
-      if (type === "morph") { to.style.transform = "scale(1.03)"; ease(to, ["opacity","transform"], dur); }
-      else ease(to, ["opacity"], dur);
+    } else if (type === "morph") { // dynamic zoom-morph: new zooms in, old recedes
+      to.style.opacity = 0;   to.style.transform = "scale(1.09)";
+      from.style.opacity = 1; from.style.transform = "scale(1)";
+      ease(to, ["opacity","transform"], dur);
+      ease(from, ["opacity","transform"], dur);
       to.offsetHeight;
-      to.style.opacity = 1; if (type === "morph") to.style.transform = "scale(1)";
-      from.style.opacity = 1;
+      to.style.opacity = 1;   to.style.transform = "scale(1)";
+      from.style.opacity = 0; from.style.transform = "scale(0.93)";
+      setTimeout(finish, dur);
+
+    } else { // plain fade -> smooth crossfade
+      to.style.opacity = 0; ease(to, ["opacity"], dur);
+      to.offsetHeight;
+      to.style.opacity = 1; from.style.opacity = 1;
       setTimeout(finish, dur);
     }
   }
