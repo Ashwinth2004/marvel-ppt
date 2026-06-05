@@ -78,6 +78,16 @@
     transition:opacity .6s; pointer-events:none; }
   .hint.hide { opacity:0; }
 
+  /* minimal, small controls while presenting fullscreen (brighten on hover) */
+  :fullscreen .toolbar, :-webkit-full-screen .toolbar {
+    left:12px; bottom:12px; padding:4px 5px; gap:3px;
+    opacity:.35; transform:scale(.8); transform-origin:bottom left;
+    transition:opacity .25s ease, transform .25s ease; }
+  :fullscreen .toolbar:hover, :-webkit-full-screen .toolbar:hover { opacity:1; transform:scale(1); }
+  :fullscreen .toolbar .lbl, :-webkit-full-screen .toolbar .lbl { display:none; }
+  :fullscreen .tbtn, :-webkit-full-screen .tbtn { padding:6px; }
+  :fullscreen .counter, :-webkit-full-screen .counter { min-width:44px; font-size:11.5px; padding:0 4px; }
+
   @media (max-width:640px){ .tbtn .lbl{ display:none; } .edge svg{ width:32px; } }
 </style>
 </head>
@@ -116,21 +126,22 @@
 
 <script>
 (function () {
-  // Per-slide "transition in" — read straight from the original .pptx
+  // Transition into each slide: "up" = bottom-to-top slide, "left" = right-to-left slide.
+  // First 10 slides use up; the last 3 use right-to-left.
   const SLIDES = [
-    { src:"slides/slide1.webp",  type:"fadeblack", dur:1600 },
-    { src:"slides/slide2.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide3.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide4.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide5.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide6.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide7.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide8.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide9.webp",  type:"morph",     dur:1500 },
-    { src:"slides/slide10.webp", type:"morph",     dur:1600 },
-    { src:"slides/slide11.webp", type:"push",      dur:1500 },
-    { src:"slides/slide12.webp", type:"fadeblack", dur:1800 },
-    { src:"slides/slide13.webp", type:"fadeblack", dur:1800 },
+    { src:"slides/slide1.webp",  type:"up",   dur:900 },
+    { src:"slides/slide2.webp",  type:"up",   dur:900 },
+    { src:"slides/slide3.webp",  type:"up",   dur:900 },
+    { src:"slides/slide4.webp",  type:"up",   dur:900 },
+    { src:"slides/slide5.webp",  type:"up",   dur:900 },
+    { src:"slides/slide6.webp",  type:"up",   dur:900 },
+    { src:"slides/slide7.webp",  type:"up",   dur:900 },
+    { src:"slides/slide8.webp",  type:"up",   dur:900 },
+    { src:"slides/slide9.webp",  type:"up",   dur:900 },
+    { src:"slides/slide10.webp", type:"up",   dur:900 },
+    { src:"slides/slide11.webp", type:"left", dur:900 },
+    { src:"slides/slide12.webp", type:"left", dur:900 },
+    { src:"slides/slide13.webp", type:"left", dur:900 },
   ];
 
   const deck = document.getElementById("deck");
@@ -160,14 +171,14 @@
     el.style.transition = props.map(p => `${p} ${ms}ms cubic-bezier(.4,0,.2,1)`).join(", ");
   }
 
-  // type override lets "Start over" use a quick fade for the long jump
+  // type: "up" (bottom-to-top slide) | "left" (right-to-left slide) | "fade" (used for long jumps)
   function go(target, dir, override) {
     if (busy || target < 0 || target >= SLIDES.length || target === cur) return;
     busy = true; hideHint();
     const from = els[cur], to = els[target];
     const meta = SLIDES[dir > 0 ? target : cur];      // entering slide owns the transition
     const type = override || meta.type;
-    const dur  = override ? 700 : meta.dur;
+    const dur  = override ? 600 : meta.dur;
 
     to.classList.add("incoming");
     to.style.transition = "none"; to.style.transform = ""; to.offsetHeight;
@@ -176,46 +187,24 @@
       from.classList.remove("current");
       to.classList.remove("incoming"); to.classList.add("current");
       [from, to].forEach(e => { e.style.transition = "none"; e.style.transform = ""; e.style.opacity = ""; e.style.zIndex = ""; });
-      blackout.style.transition = "none"; blackout.style.opacity = 0;
       cur = target; updateChrome(); busy = false;
     };
 
-    if (type === "push") {
-      const sign = dir > 0 ? 1 : -1;            // PowerPoint default Push = from bottom
-      to.style.opacity = 1; to.style.transform = `translateY(${100*sign}%)`;
-      from.style.opacity = 1; to.offsetHeight;
-      ease(to, ["transform"], dur); ease(from, ["transform"], dur);
-      to.style.transform = "translateY(0)";
-      from.style.transform = `translateY(${-100*sign}%)`;
-      setTimeout(finish, dur);
-
-    } else if (type === "fadeblack") {
-      const half = dur / 2;
-      to.style.opacity = 1; to.style.zIndex = 1; from.style.zIndex = 2;
-      blackout.style.opacity = 0; blackout.style.transition = `opacity ${half}ms ease-in`;
-      blackout.offsetHeight; blackout.style.opacity = 1;
-      setTimeout(() => {
-        from.classList.remove("current");
-        from.style.zIndex = ""; to.style.zIndex = "";
-        blackout.style.transition = `opacity ${half}ms ease-out`;
-        blackout.offsetHeight; blackout.style.opacity = 0;
-        setTimeout(finish, half);
-      }, half);
-
-    } else if (type === "morph") { // dynamic zoom-morph: new zooms in, old recedes
-      to.style.opacity = 0;   to.style.transform = "scale(1.09)";
-      from.style.opacity = 1; from.style.transform = "scale(1)";
-      ease(to, ["opacity","transform"], dur);
-      ease(from, ["opacity","transform"], dur);
-      to.offsetHeight;
-      to.style.opacity = 1;   to.style.transform = "scale(1)";
-      from.style.opacity = 0; from.style.transform = "scale(0.93)";
-      setTimeout(finish, dur);
-
-    } else { // plain fade -> smooth crossfade
+    if (type === "fade") {                 // smooth crossfade (Start over / End jumps)
       to.style.opacity = 0; ease(to, ["opacity"], dur);
       to.offsetHeight;
       to.style.opacity = 1; from.style.opacity = 1;
+      setTimeout(finish, dur);
+
+    } else {                               // directional slide: "up" => Y axis, "left" => X axis
+      const axis = (type === "left") ? "X" : "Y";
+      const sign = dir > 0 ? 1 : -1;       // forward: new enters from bottom/right
+      to.style.opacity = 1;   to.style.transform = `translate${axis}(${100*sign}%)`;
+      from.style.opacity = 1; from.style.transform = `translate${axis}(0)`;
+      to.offsetHeight;
+      ease(to, ["transform"], dur); ease(from, ["transform"], dur);
+      to.style.transform = `translate${axis}(0)`;
+      from.style.transform = `translate${axis}(${-100*sign}%)`;
       setTimeout(finish, dur);
     }
   }
